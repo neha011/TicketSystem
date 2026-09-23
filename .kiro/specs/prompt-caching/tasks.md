@@ -17,7 +17,7 @@ requirement clause it validates.
 
 ## Tasks
 
-- [ ] 1. Establish configuration, domain records, DTOs, and the new exception
+- [x] 1. Establish configuration, domain records, DTOs, and the new exception
   - [x] 1.1 Create `ResponseParams` value object and `CacheEntry` record
     - Add `com.ticketsystem.ticket.domain.ResponseParams` holding response-affecting params (e.g. `model`), with deterministic sorted-key serialization used for canonical identity
     - Add `com.ticketsystem.ticket.domain.CacheEntry` record with `cacheKey`, `promptText`, `canonicalIdentity`, nullable `cachedResponse`, `createdAt`, `lastAccessedAt`, `hitCount`, plus copy helpers for hit-count/last-accessed updates
@@ -36,7 +36,7 @@ requirement clause it validates.
     - `PromptCachePropertiesPropertyTest` generating values inside/outside the permitted ranges and unparseable values; assert effective value equals the documented default when out of range
     - _Requirements: 5.3_
 
-  - [-] 1.4 Create request/response DTOs
+  - [x] 1.4 Create request/response DTOs
     - Add `SubmitPromptRequest` (`dto/request`) with `@NotNull @TrimmedSize(min = 1, max = 100000) prompt`, optional `model`, optional `response`, using camelCase JSON and springdoc `@Schema` field descriptions
     - Add `PromptSubmissionResponse` and `CacheEntryResponse` (`dto/response`) with camelCase JSON, ISO-8601 `Instant` timestamps, and `@Schema` annotations
     - _Requirements: 1.5, 1.6, 8.1, 8.2, 8.3_
@@ -115,8 +115,8 @@ requirement clause it validates.
     - Empty file and newly-created file both yield an empty set; invalid JSON raises; writer leaves no temp/partial file on injected failure
     - _Requirements: 4.5, 7.3_
 
-- [ ] 5. Implement the concurrency-guarding `CacheStore`
-  - [-] 5.1 Implement `CacheStore` with in-memory map, read/write lock, and startup load
+- [x] 5. Implement the concurrency-guarding `CacheStore`
+  - [x] 5.1 Implement `CacheStore` with in-memory map, read/write lock, and startup load
     - Add `CacheStore` interface + implementation backed by `HashMap<String, CacheEntry>` guarded by a `ReentrantReadWriteLock`; `get`, `snapshot`, and `mutateAndPersist(Consumer<Map<...>>)`
     - `mutateAndPersist` acquires the write lock with a 5s timeout (throw `CacheUnavailableException` on timeout, leaving state untouched), mutates the map, delegates to `CacheFileWriter`, and rolls back the in-memory mutation from a pre-mutation snapshot if the write fails
     - `@PostConstruct init()` ensures parent dirs + `Cache_File` exist, loads via `CacheFileReader`; on unreadable/invalid JSON, log WARN and start with an empty cache
@@ -126,17 +126,17 @@ requirement clause it validates.
     - Missing file/dirs are created; empty/newly-created file → empty set; corrupt JSON → empty cache + WARN, still accepts mutations; injected writer failure → rollback, no partial file, `CacheUnavailableException`; write-lock held elsewhere → 5s timeout → `CacheUnavailableException`, file unchanged
     - _Requirements: 4.3, 4.4, 4.5, 6.2, 7.1, 7.2, 7.3_
 
-- [~] 6. Checkpoint - Ensure all tests pass
+- [x] 6. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 7. Implement `PromptCacheService` orchestration
-  - [~] 7.1 Implement `PromptCacheService.submit`
+- [x] 7. Implement `PromptCacheService` orchestration
+  - [x] 7.1 Implement `PromptCacheService.submit`
     - Add `PromptCacheService` interface + implementation wiring `PromptNormalizer`, `CacheKeyDeriver`, `EvictionPolicy`, `CacheStore`, `PromptCacheProperties`, and the injected `Clock`
     - Normalize → reject empty-after-normalize (`ValidationException`) and over-length (validation) → derive key → detect collision (existing entry with differing canonical identity → `CacheUnavailableException`, leave entry unchanged) → under `mutateAndPersist`: on miss apply TTL+overflow eviction, create entry (hitCount 0, equal created/last-accessed), persist, report miss; on non-expired hit increment hitCount by one, set last-accessed to now, persist, report hit with stored response iff present; on expired hit remove and follow miss path
     - Reject a supplied response for a non-matching key with `ValidationException` without persisting
     - _Requirements: 1.2, 1.4, 1.5, 1.6, 2.6, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 5.4, 5.5_
 
-  - [~] 7.2 Implement `PromptCacheService.findByKey`
+  - [x] 7.2 Implement `PromptCacheService.findByKey`
     - Look up by key; treat an entry whose age `>= ttl` as a miss and remove it (persist), returning empty so the controller answers 404
     - _Requirements: 3.1, 5.4, 8.4_
 
@@ -174,11 +174,11 @@ requirement clause it validates.
     - Length boundary 100000 accepted / 100001 rejected; response-for-missing-key rejected without persist; hit with no stored response returns explicit no-response indication
     - _Requirements: 1.6, 3.3, 3.9_
 
-- [~] 8. Checkpoint - Ensure all tests pass
+- [x] 8. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 9. Implement `PromptCacheController` and wire the REST API
-  - [~] 9.1 Implement `PromptCacheController`
+- [x] 9. Implement `PromptCacheController` and wire the REST API
+  - [x] 9.1 Implement `PromptCacheController`
     - Add controller under `/api/v1/prompt-cache`: `POST` returns 200 `PromptSubmissionResponse` on hit, 201 with `Location: /api/v1/prompt-cache/{cacheKey}` on new entry; `GET /{cacheKey}` returns 200 `CacheEntryResponse` or 404 (via `findByKey` returning empty → `NotFoundException`)
     - `@Valid @RequestBody` trigger only; delegate all policy to the service; add springdoc `@Operation`/`@ApiResponse`/`@Schema` documenting request body, every response status, and each response schema
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.7_
@@ -208,7 +208,7 @@ requirement clause it validates.
     - `@SpringBootTest` hitting `/v3/api-docs`; assert each prompt-cache endpoint documents its request body schema, every response status code, and each response body schema
     - _Requirements: 8.7_
 
-- [~] 11. Final checkpoint - Ensure all tests pass
+- [x] 11. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

@@ -68,7 +68,11 @@ class OpenApiDocumentCoverageTest {
             new EndpointContract(
                     "/api/v1/tickets/{ticketId}/comments",
                     "get",
-                    Set.of("200", "401", "403", "404")));
+                    Set.of("200", "401", "403", "404")),
+            new EndpointContract(
+                    "/api/v1/prompt-cache", "post", Set.of("200", "201", "400", "500")),
+            new EndpointContract(
+                    "/api/v1/prompt-cache/{cacheKey}", "get", Set.of("200", "404")));
 
     private JsonNode apiDocs;
 
