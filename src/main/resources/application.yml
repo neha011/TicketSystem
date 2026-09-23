@@ -1,0 +1,130 @@
+# Support Ticket Management - service configuration.
+#
+# Profiles (see design.md "Environment and Persistence Profiles"):
+#   local  - H2 in-memory, automatic schema generation permitted, Flyway disabled (Req 9.6)
+#   test           - non-local: Flyway owns the schema, Hibernate only validates it (Req 9.4)
+#   prod, staging  - non-local: PostgreSQL, Flyway owns the schema, Hibernate only
+#                    validates it (Req 9.4)
+#
+# No credential value is ever committed here: datasource coordinates are read from the
+# DB_URL / DB_USERNAME / DB_PASSWORD environment variables. Only the local and test
+# profiles carry in-memory H2 fallbacks, which are not secrets.
+spring:
+  application:
+    name: ticket-service
+  profiles:
+    default: local
+  jpa:
+    # Lazy associations must not be initialized during view rendering; every load path is
+    # explicit inside a service transaction instead.
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    locations: classpath:db/migration
+    # Drift is surfaced rather than papered over: never assume an existing schema is at V1,
+    # and always re-check applied migration checksums (Req 9.5, 9.7).
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    clean-disabled: true
+
+ticket:
+  user-directory:
+    # Identities that may be named as an assignee (Req 4.5). Usernames, not secrets.
+    # No default list: an unconfigured environment rejects every assignment with 422
+    # rather than accepting arbitrary text.
+    known-users: ${TICKET_KNOWN_USERS:}
+
+# File-backed prompt cache (Req 4.2, 5.1, 5.2). Any value that is out of range or
+# cannot be parsed is clamped back to the documented default with a WARN log at
+# startup rather than aborting boot (Req 5.3) - see PromptCacheProperties.
+prompt-cache:
+  # JSON Cache_File path; parent directories are created on startup if absent.
+  file: ${PROMPT_CACHE_FILE:./data/prompt-cache.json}
+  # Maximum Cache_Entries; valid range 1..1000000, default 10000.
+  max-entries: ${PROMPT_CACHE_MAX_ENTRIES:10000}
+  # Entry time-to-live; valid range 1s..31536000s (365 days), default 604800s (7 days).
+  ttl: ${PROMPT_CACHE_TTL:604800s}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+logging:
+  level:
+    root: INFO
+    com.ticketsystem.ticket: INFO
+
+---
+# Local development: automatic schema generation is explicitly permitted here (Req 9.6).
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: ${DB_URL:jdbc:h2:mem:ticketdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+
+# Sample identities so assignment is exercisable locally without an identity provider.
+ticket:
+  user-directory:
+    known-users: ${TICKET_KNOWN_USERS:alice,bob,carol}
+
+---
+# Test is a non-local environment: the schema comes from migrations only (Req 9.4).
+# Slice tests run against H2 in PostgreSQL compatibility mode; integration tests override
+# the datasource with a Testcontainers PostgreSQL instance so the real migrations are
+# exercised against the real engine.
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: ${DB_URL:jdbc:h2:mem:ticketdb-test;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+---
+# Production and staging: PostgreSQL, migrations only, no automatic schema
+# generation (Req 9.4). The datasource placeholders carry no defaults on purpose - a
+# missing environment variable fails startup instead of silently falling back to a
+# local database.
+spring:
+  config:
+    activate:
+      on-profile: prod | staging
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+
+# Documentation is a non-production affordance. Disabling the springdoc endpoints here
+# means the API-docs and Swagger UI machinery is switched off entirely under prod/staging,
+# a defense-in-depth backstop to SecurityConfig, which already keeps these routes
+# authenticated in production. OpenApiConfig is likewise inactive under these profiles.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

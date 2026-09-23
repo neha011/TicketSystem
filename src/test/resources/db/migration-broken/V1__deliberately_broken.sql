@@ -1,0 +1,11 @@
+-- Deliberately broken migration used ONLY by MigrationFailureStartupTest (task 18.5).
+--
+-- This lives under a test-only classpath location (classpath:db/migration-broken) and is
+-- NEVER on the main migration path (src/main/resources/db/migration), so it cannot affect
+-- the real V1__create_ticket_and_comment.sql or any other test.
+--
+-- The statement below is invalid SQL: THIS_IS_NOT_A_VALID_STATEMENT is not a command any
+-- database understands. When Flyway applies it during ApplicationContext refresh it throws,
+-- the context fails to refresh, and — because Flyway runs before the embedded web server
+-- opens its listener socket — no port is ever bound (Req 9.5, 9.7).
+THIS_IS_NOT_A_VALID_STATEMENT should_fail_the_migration;
